@@ -25,3 +25,7 @@ dnf5 install -y tmux
 #### Example for enabling a System Unit File
 
 systemctl enable podman.socket
+
+dnf5 remove -y firefox firefox-langpacks
+glib-compile-schemas /usr/share/glib-2.0/schemas
+systemctl enable tamamo-flatpak-preinstall.service
