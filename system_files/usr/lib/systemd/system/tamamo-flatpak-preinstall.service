@@ -1,0 +1,13 @@
+[Unit]
+Description=Install the flatpaks that come with Tamamo
+Wants=network-online.target
+After=network-online.target flatpak-add-fedora-repos.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/flatpak preinstall -y --noninteractive
+Restart=on-failure
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
