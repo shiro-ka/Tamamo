@@ -47,5 +47,6 @@ sed -i 's|^EFIDIR=.*|EFIDIR="fedora"|' /usr/sbin/grub2-switch-to-blscfg
 KERNEL_VERSION=$(dnf5 repoquery --installed --queryformat='%{evr}.%{arch}' kernel)
 cp /usr/lib/os-release /tmp/os-release
 sed -Ei '/^(VERSION|PRETTY_NAME|BUILD_ID)=/d' /usr/lib/os-release
-DRACUT_NO_XATTR=1 dracut --no-hostonly --kver "${KERNEL_VERSION}" --reproducible -f "/usr/lib/modules/${KERNEL_VERSION}/initramfs.img"
+DRACUT_NO_XATTR=1 dracut --no-hostonly --kver "${KERNEL_VERSION}" --reproducible --add ostree -f "/usr/lib/modules/${KERNEL_VERSION}/initramfs.img"
+chmod 0600 "/usr/lib/modules/${KERNEL_VERSION}/initramfs.img"
 cp /tmp/os-release /usr/lib/os-release
