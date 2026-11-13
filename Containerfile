@@ -3,6 +3,23 @@ FROM scratch AS ctx
 COPY build_files /
 COPY system_files /system_files
 
+FROM quay.io/fedora/fedora:44 AS tamamo-build
+ARG ZIG_VERSION=0.17.1
+ARG ZIG_SHA256=3581863e3cbcfd0fce0efc682ce7e9e93da96668a977791d356a26d2a7e9b17a
+COPY tamamo /src
+RUN set -eu; \
+    command -v xz >/dev/null || dnf -y install xz; \
+    f="zig-x86_64-linux-${ZIG_VERSION}.tar.xz"; \
+    for m in $(curl -fsSL https://ziglang.org/download/community-mirrors.txt | shuf) "https://ziglang.org/download/${ZIG_VERSION}"; do \
+        if curl -fsSL --max-time 300 -o "/tmp/$f" "$m/$f?source=tamamo" && echo "${ZIG_SHA256}  /tmp/$f" | sha256sum -c -; then break; fi; \
+        rm -f "/tmp/$f"; \
+    done; \
+    test -f "/tmp/$f"; \
+    mkdir /opt/zig; \
+    tar -xJf "/tmp/$f" -C /opt/zig --strip-components=1; \
+    cd /src; \
+    /opt/zig/zig build -Doptimize=ReleaseSafe -Dtarget=x86_64-linux --prefix /out
+
 # Base Image
 FROM ghcr.io/ublue-os/silverblue-main:44
 ## Other possible base images include:
@@ -29,6 +46,8 @@ FROM ghcr.io/ublue-os/silverblue-main:44
 ### MODIFICATIONS
 ## make modifications desired in your image and install packages by modifying the build.sh script
 ## the following RUN directive does all the things required to run "build.sh" as recommended.
+
+COPY --from=tamamo-build /out/bin/tamamo /usr/bin/tamamo
 
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache \
