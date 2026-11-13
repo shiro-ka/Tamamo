@@ -1,0 +1,12 @@
+.{
+    .name = .tamamo,
+    .version = "0.0.0",
+    .fingerprint = 0x8245763aa9d4b85,
+    .minimum_zig_version = "0.17.1",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
