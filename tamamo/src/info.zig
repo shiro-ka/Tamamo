@@ -6,6 +6,12 @@ pub fn run(io: Io, out: *Io.Writer) !void {
     const os_release = try Io.Dir.cwd().readFile(io, "/etc/os-release", &buffer);
 
     try out.print("OS: {s}\n", .{prettyName(os_release) orelse "unknown"});
+
+    const uts = std.posix.uname();
+    try out.print("Kernel: {s} {s}\n", .{
+        std.mem.sliceTo(&uts.sysname, 0),
+        std.mem.sliceTo(&uts.release, 0),
+    });
 }
 
 fn prettyName(os_release: []const u8) ?[]const u8 {
