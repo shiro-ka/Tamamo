@@ -14,6 +14,6 @@ pub fn main(init: std.process.Init) !void {
     var stdout: Io.File.Writer = .init(.stdout(), init.io, &buffer);
     const out = &stdout.interface;
 
-    try info.run(out);
+    try info.run(init.io, out);
     try out.flush();
 }
