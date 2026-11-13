@@ -1,5 +1,6 @@
 const std = @import("std");
 const Io = std.Io;
+const info = @import("info.zig");
 
 pub fn main(init: std.process.Init) !void {
     const args = try init.minimal.args.toSlice(init.arena.allocator());
@@ -13,6 +14,6 @@ pub fn main(init: std.process.Init) !void {
     var stdout: Io.File.Writer = .init(.stdout(), init.io, &buffer);
     const out = &stdout.interface;
 
-    try out.writeAll("Tamamo\n");
+    try info.run(out);
     try out.flush();
 }
