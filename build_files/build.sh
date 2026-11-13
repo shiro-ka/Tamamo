@@ -29,3 +29,17 @@ systemctl enable podman.socket
 dnf5 remove -y firefox firefox-langpacks
 glib-compile-schemas /usr/share/glib-2.0/schemas
 systemctl enable tamamo-flatpak-preinstall.service
+
+TAMAMO_VERSION=0
+BUILD_DATE=$(date -u +%Y%m%d)
+cat > /usr/lib/os-release <<EOF
+NAME="Tamamo OS"
+VERSION="${TAMAMO_VERSION}.${BUILD_DATE}"
+ID=tamamo
+ID_LIKE=fedora
+VERSION_ID=${TAMAMO_VERSION}
+PRETTY_NAME="Tamamo OS ${TAMAMO_VERSION}"
+DEFAULT_HOSTNAME="tamamo"
+BUILD_ID="${TAMAMO_VERSION}.${BUILD_DATE}${GIT_SHA:+.${GIT_SHA}}"
+EOF
+sed -i 's|^EFIDIR=.*|EFIDIR="fedora"|' /usr/sbin/grub2-switch-to-blscfg

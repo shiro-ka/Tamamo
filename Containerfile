@@ -49,6 +49,8 @@ FROM ghcr.io/ublue-os/silverblue-main:44
 
 COPY --from=tamamo-build /out/bin/tamamo /usr/bin/tamamo
 
+ARG GIT_SHA=""
+
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \
