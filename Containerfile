@@ -21,7 +21,7 @@ RUN set -eu; \
     /opt/zig/zig build -Doptimize=ReleaseSafe -Dtarget=x86_64-linux --prefix /out
 
 # Base Image
-FROM ghcr.io/ublue-os/silverblue-main:44
+FROM ghcr.io/ublue-os/silverblue-main:45
 ## Other possible base images include:
 # FROM ghcr.io/ublue-os/bazzite:testing
 # FROM ghcr.io/ublue-os/aurora:stable
