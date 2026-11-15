@@ -27,6 +27,7 @@ dnf5 install -y tmux
 systemctl enable podman.socket
 
 dnf5 remove -y firefox firefox-langpacks
+rm -f /usr/share/locale/*/LC_MESSAGES/xdg-user-dirs.mo
 glib-compile-schemas /usr/share/glib-2.0/schemas
 systemctl enable tamamo-flatpak-preinstall.service
 
