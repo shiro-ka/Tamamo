@@ -1,0 +1,3 @@
+docker:
+  ghcr.io/shiro-ka:
+    use-sigstore-attachments: true

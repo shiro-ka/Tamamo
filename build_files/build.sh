@@ -29,6 +29,8 @@ systemctl enable podman.socket
 dnf5 remove -y firefox firefox-langpacks
 rm -f /usr/share/locale/*/LC_MESSAGES/xdg-user-dirs.mo
 glib-compile-schemas /usr/share/glib-2.0/schemas
+jq '.transports.docker["ghcr.io/shiro-ka"] = [{"type": "sigstoreSigned", "keyPath": "/etc/pki/containers/tamamo.pub", "signedIdentity": {"type": "matchRepository"}}]' /etc/containers/policy.json > /tmp/policy.json
+mv /tmp/policy.json /etc/containers/policy.json
 systemctl enable tamamo-flatpak-preinstall.service
 
 TAMAMO_VERSION=0
