@@ -45,6 +45,10 @@ BUILD_ID="${TAMAMO_VERSION}.${BUILD_DATE}${GIT_SHA:+.${GIT_SHA}}"
 EOF
 sed -i 's|^EFIDIR=.*|EFIDIR="fedora"|' /usr/sbin/grub2-switch-to-blscfg
 
+if [[ -n "${NVIDIA}" ]]; then
+    /ctx/nvidia.sh
+fi
+
 KERNEL_VERSION=$(dnf5 repoquery --installed --queryformat='%{evr}.%{arch}' kernel)
 cp /usr/lib/os-release /tmp/os-release
 sed -Ei '/^(VERSION|PRETTY_NAME|BUILD_ID)=/d' /usr/lib/os-release

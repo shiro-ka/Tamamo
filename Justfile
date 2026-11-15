@@ -100,6 +100,9 @@ build $target_image=image_name $tag=default_tag:
 
     BUILD_ARGS=()
     LABELS=()
+    if [[ -n "${NVIDIA:-}" ]]; then
+        BUILD_ARGS+=("--build-arg" "NVIDIA=1" "--build-arg" "AKMODS_IMAGE=${AKMODS_IMAGE}")
+    fi
     if [[ -z "$(git status -s)" ]]; then
         GIT_SHA=$(git rev-parse --short HEAD)
         BUILD_ARGS+=("--build-arg" "GIT_SHA=${GIT_SHA}")

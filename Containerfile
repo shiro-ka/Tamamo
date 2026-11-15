@@ -1,7 +1,12 @@
+ARG BASE_IMAGE=ghcr.io/ublue-os/silverblue-main:45
+ARG AKMODS_IMAGE=${BASE_IMAGE}
+
 # Allow build scripts to be referenced without being copied into the final image
 FROM scratch AS ctx
 COPY build_files /
 COPY system_files /system_files
+
+FROM ${AKMODS_IMAGE} AS akmods
 
 FROM quay.io/fedora/fedora:44 AS tamamo-build
 ARG ZIG_VERSION=0.17.1
@@ -21,7 +26,7 @@ RUN set -eu; \
     /opt/zig/zig build -Doptimize=ReleaseSafe -Dtarget=x86_64-linux --prefix /out
 
 # Base Image
-FROM ghcr.io/ublue-os/silverblue-main:45
+FROM ${BASE_IMAGE}
 ## Other possible base images include:
 # FROM ghcr.io/ublue-os/bazzite:testing
 # FROM ghcr.io/ublue-os/aurora:stable
@@ -50,11 +55,13 @@ FROM ghcr.io/ublue-os/silverblue-main:45
 COPY --from=tamamo-build /out/bin/tamamo /usr/bin/tamamo
 
 ARG GIT_SHA=""
+ARG NVIDIA=""
 
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \
+    --mount=type=bind,from=akmods,source=/,target=/tmp/akmods \
     /ctx/build.sh
 
 ### LINTING

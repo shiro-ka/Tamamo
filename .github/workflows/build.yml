@@ -24,6 +24,16 @@ jobs:
   build_push:
     name: Build and push image
     runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suffix: ""
+            nvidia: ""
+          - suffix: "-nvidia"
+            nvidia: "1"
+    env:
+      NVIDIA: ${{ matrix.nvidia }}
 
     permissions:
       contents: read
@@ -49,9 +59,15 @@ jobs:
       - name: Image Name
         id: image-name
         run: |
-          IMAGE_NAME=$(just image_name)
+          IMAGE_NAME=$(just image_name)${{ matrix.suffix }}
 
           echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
+
+      - name: NVIDIA akmods
+        if: matrix.nvidia == '1'
+        run: |
+          KERNEL=$(skopeo inspect --retry-times 3 docker://ghcr.io/ublue-os/silverblue-main:45 | jq -r '.Labels["ostree.linux"]')
+          echo "AKMODS_IMAGE=ghcr.io/ublue-os/akmods-nvidia-open:main-45-${KERNEL}" >> $GITHUB_ENV
 
       - name: Default Tag
         id: gen-default-tag
