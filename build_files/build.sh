@@ -32,13 +32,14 @@ glib-compile-schemas /usr/share/glib-2.0/schemas
 systemctl enable tamamo-flatpak-preinstall.service
 
 TAMAMO_VERSION=0
+FEDORA_VERSION_ID=$(. /usr/lib/os-release && echo "${VERSION_ID}")
 BUILD_DATE=$(date -u +%Y%m%d)
 cat > /usr/lib/os-release <<EOF
 NAME="Tamamo OS"
 VERSION="${TAMAMO_VERSION}.${BUILD_DATE}"
 ID=tamamo
 ID_LIKE=fedora
-VERSION_ID=${TAMAMO_VERSION}
+VERSION_ID=${FEDORA_VERSION_ID}
 PRETTY_NAME="Tamamo OS ${TAMAMO_VERSION}"
 DEFAULT_HOSTNAME="tamamo"
 BUILD_ID="${TAMAMO_VERSION}.${BUILD_DATE}${GIT_SHA:+.${GIT_SHA}}"
