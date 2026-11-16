@@ -17,22 +17,35 @@ pub fn run(arena: Allocator, io: Io, out: *Io.Writer) !void {
     const deployments: []const ostree.Deployment = ostree.deployments(arena, io) catch &.{};
     const tz: ?std.tz.Tz = if (deployments.len > 0) try localtime.load(arena, io) else null;
 
-    var system: std.ArrayList(Item) = .empty;
-    try system.append(arena, .{ .label = "OS", .value = prettyName(os_release) orelse "unknown" });
-    try system.append(arena, .{ .label = "Kernel", .value = try kernelValue(arena) });
+    const system = [_]Item{
+        .{ .label = "OS", .value = prettyName(os_release) orelse "unknown" },
+        .{ .label = "Kernel", .value = try kernelValue(arena) },
+    };
+
+    var image: std.ArrayList(Item) = .empty;
     if (ostree.booted(deployments)) |deployment| {
         const ago = try agoText(arena, deployment.timestamp, now);
-        try system.append(arena, .{ .label = "Built", .value = try timeValue(arena, tz.?, deployment.timestamp, ago) });
-    }
-    if (commit(os_release)) |value| {
-        try system.append(arena, .{ .label = "Commit", .value = value });
+        try image.append(arena, .{ .label = "Built", .value = try timeValue(arena, tz.?, deployment.timestamp, ago) });
+        if (commit(os_release)) |value| {
+            try image.append(arena, .{ .label = "Commit", .value = value });
+        }
     }
     if (ostree.staged(deployments)) |deployment| {
-        try system.append(arena, .{ .label = "Next", .value = try timeValue(arena, tz.?, deployment.timestamp, "reboot to apply") });
+        try image.append(arena, .{ .label = "Next", .value = try timeValue(arena, tz.?, deployment.timestamp, "reboot to apply") });
     }
     if (ostree.rollback(deployments)) |deployment| {
         const ago = try agoText(arena, deployment.timestamp, now);
-        try system.append(arena, .{ .label = "Prev", .value = try timeValue(arena, tz.?, deployment.timestamp, ago) });
+        try image.append(arena, .{ .label = "Prev", .value = try timeValue(arena, tz.?, deployment.timestamp, ago) });
+    }
+    if (ostree.booted(deployments)) |deployment| {
+        const count = deployment.layeredCount();
+        if (count > 0) {
+            const noun = if (count == 1) "package" else "packages";
+            try image.append(arena, .{ .label = "Added", .value = try std.fmt.allocPrint(arena, "{d} {s}", .{ count, noun }) });
+        }
+        if (!deployment.isVerified()) {
+            try image.append(arena, .{ .label = "Note", .value = "image signature is not verified" });
+        }
     }
 
     const machine = [_]Item{
@@ -41,7 +54,7 @@ pub fn run(arena: Allocator, io: Io, out: *Io.Writer) !void {
     };
 
     try out.writeAll(header);
-    try printGroups(out, &.{ system.items, &machine });
+    try printGroups(out, &.{ &system, image.items, &machine });
 }
 
 fn printGroups(out: *Io.Writer, groups: []const []const Item) !void {
@@ -51,6 +64,7 @@ fn printGroups(out: *Io.Writer, groups: []const []const Item) !void {
     }
 
     for (groups) |items| {
+        if (items.len == 0) continue;
         try out.writeAll("\n");
         for (items) |item| {
             try out.splatByteAll(' ', width - item.label.len);
@@ -64,6 +78,7 @@ test printGroups {
     var out: Io.Writer = .fixed(&buffer);
     try printGroups(&out, &.{
         &.{ .{ .label = "OS", .value = "Tamamo OS 0" }, .{ .label = "Kernel", .value = "Linux 7.3.3" } },
+        &.{},
         &.{.{ .label = "Uptime", .value = "5m" }},
     });
     try std.testing.expectEqualStrings("\n    OS: Tamamo OS 0\nKernel: Linux 7.3.3\n\nUptime: 5m\n", out.buffered());

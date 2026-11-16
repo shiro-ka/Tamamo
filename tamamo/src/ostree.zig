@@ -6,6 +6,17 @@ pub const Deployment = struct {
     booted: bool = false,
     staged: bool = false,
     timestamp: i64 = 0,
+    @"container-image-reference": []const u8 = "",
+    packages: []const []const u8 = &.{},
+    @"requested-local-packages": []const []const u8 = &.{},
+
+    pub fn layeredCount(self: Deployment) usize {
+        return self.packages.len + self.@"requested-local-packages".len;
+    }
+
+    pub fn isVerified(self: Deployment) bool {
+        return !std.mem.startsWith(u8, self.@"container-image-reference", "ostree-unverified-");
+    }
 };
 
 const Status = struct {
@@ -75,4 +86,20 @@ test rollback {
     try std.testing.expectEqual(200, booted(list).?.timestamp);
     try std.testing.expectEqual(100, rollback(list).?.timestamp);
     try std.testing.expectEqual(null, rollback(list[0..2]));
+}
+
+test "layeredCount and isVerified" {
+    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_state.deinit();
+    const list = try parseDeployments(arena_state.allocator(),
+        \\{"deployments": [
+        \\  {"booted": true, "container-image-reference": "ostree-unverified-registry:ghcr.io/shiro-ka/tamamo-nvidia:latest",
+        \\   "packages": ["input-remapper", "socat"], "requested-local-packages": []},
+        \\  {"booted": false, "container-image-reference": "ostree-image-signed:docker://ghcr.io/shiro-ka/tamamo:latest"}
+        \\]}
+    );
+    try std.testing.expectEqual(2, list[0].layeredCount());
+    try std.testing.expect(!list[0].isVerified());
+    try std.testing.expectEqual(0, list[1].layeredCount());
+    try std.testing.expect(list[1].isVerified());
 }
