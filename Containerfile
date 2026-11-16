@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ghcr.io/ublue-os/silverblue-main:45
+ARG BASE_IMAGE=ghcr.io/ublue-os/silverblue-main@sha256:f747213fa7cbf2180fdae2715c8ec43f68ba9608978ea91e32700a18e76c9414
 ARG AKMODS_IMAGE=${BASE_IMAGE}
 
 # Allow build scripts to be referenced without being copied into the final image

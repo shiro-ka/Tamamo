@@ -4,8 +4,6 @@ on:
   pull_request:
     branches:
       - main
-  schedule:
-    - cron: '05 10 * * *'  # 10:05am UTC everyday
   push:
     branches:
       - main
@@ -66,7 +64,8 @@ jobs:
       - name: NVIDIA akmods
         if: matrix.nvidia == '1'
         run: |
-          KERNEL=$(skopeo inspect --retry-times 3 docker://ghcr.io/ublue-os/silverblue-main:45 | jq -r '.Labels["ostree.linux"]')
+          BASE_IMAGE=$(sed -n 's/^ARG BASE_IMAGE=//p' Containerfile)
+          KERNEL=$(skopeo inspect --retry-times 3 "docker://${BASE_IMAGE}" | jq -r '.Labels["ostree.linux"]')
           echo "AKMODS_IMAGE=ghcr.io/ublue-os/akmods-nvidia-open:main-45-${KERNEL}" >> $GITHUB_ENV
 
       - name: Default Tag
