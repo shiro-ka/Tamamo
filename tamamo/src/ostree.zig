@@ -32,6 +32,22 @@ pub fn booted(list: []const Deployment) ?Deployment {
     return null;
 }
 
+pub fn staged(list: []const Deployment) ?Deployment {
+    for (list) |deployment| {
+        if (deployment.staged) return deployment;
+    }
+    return null;
+}
+
+pub fn rollback(list: []const Deployment) ?Deployment {
+    for (list, 0..) |deployment, i| {
+        if (!deployment.booted) continue;
+        if (i + 1 < list.len and !list[i + 1].staged) return list[i + 1];
+        return null;
+    }
+    return null;
+}
+
 test parseDeployments {
     var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
     defer arena_state.deinit();
@@ -43,4 +59,20 @@ test parseDeployments {
     );
     try std.testing.expectEqual(2, list.len);
     try std.testing.expectEqual(1794791004, booted(list).?.timestamp);
+}
+
+test rollback {
+    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_state.deinit();
+    const list = try parseDeployments(arena_state.allocator(),
+        \\{"deployments": [
+        \\  {"booted": false, "staged": true, "timestamp": 300},
+        \\  {"booted": true, "staged": false, "timestamp": 200},
+        \\  {"booted": false, "staged": false, "timestamp": 100}
+        \\]}
+    );
+    try std.testing.expectEqual(300, staged(list).?.timestamp);
+    try std.testing.expectEqual(200, booted(list).?.timestamp);
+    try std.testing.expectEqual(100, rollback(list).?.timestamp);
+    try std.testing.expectEqual(null, rollback(list[0..2]));
 }

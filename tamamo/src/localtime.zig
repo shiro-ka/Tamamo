@@ -3,14 +3,13 @@ const Io = std.Io;
 const Allocator = std.mem.Allocator;
 const epoch = std.time.epoch;
 
-pub fn offset(arena: Allocator, io: Io, unix: i64) !i32 {
+pub fn load(arena: Allocator, io: Io) !std.tz.Tz {
     const data = try Io.Dir.cwd().readFileAlloc(io, "/etc/localtime", arena, .limited(1 << 20));
     var reader: Io.Reader = .fixed(data);
-    const tz = try std.tz.Tz.parse(arena, &reader);
-    return offsetAt(tz, unix);
+    return std.tz.Tz.parse(arena, &reader);
 }
 
-fn offsetAt(tz: std.tz.Tz, unix: i64) i32 {
+pub fn offsetAt(tz: std.tz.Tz, unix: i64) i32 {
     var result = tz.timetypes[0].offset;
     for (tz.transitions) |transition| {
         if (transition.ts > unix) break;

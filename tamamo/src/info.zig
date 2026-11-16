@@ -14,42 +14,59 @@ const Item = struct {
 pub fn run(arena: Allocator, io: Io, out: *Io.Writer) !void {
     const os_release = try Io.Dir.cwd().readFileAlloc(io, "/etc/os-release", arena, .limited(1 << 16));
     const now = Io.Clock.real.now(io).toSeconds();
+    const deployments: []const ostree.Deployment = ostree.deployments(arena, io) catch &.{};
+    const tz: ?std.tz.Tz = if (deployments.len > 0) try localtime.load(arena, io) else null;
 
-    var items: std.ArrayList(Item) = .empty;
-    try items.append(arena, .{ .label = "OS", .value = prettyName(os_release) orelse "unknown" });
-    try items.append(arena, .{ .label = "Kernel", .value = try kernelValue(arena) });
-    try items.append(arena, .{ .label = "Uptime", .value = try uptimeValue(arena, io) });
-    try items.append(arena, .{ .label = "Memory", .value = try memoryValue(arena, io) });
+    var system: std.ArrayList(Item) = .empty;
+    try system.append(arena, .{ .label = "OS", .value = prettyName(os_release) orelse "unknown" });
+    try system.append(arena, .{ .label = "Kernel", .value = try kernelValue(arena) });
+    if (ostree.booted(deployments)) |deployment| {
+        const ago = try agoText(arena, deployment.timestamp, now);
+        try system.append(arena, .{ .label = "Built", .value = try timeValue(arena, tz.?, deployment.timestamp, ago) });
+    }
+    if (commit(os_release)) |value| {
+        try system.append(arena, .{ .label = "Commit", .value = value });
+    }
+    if (ostree.staged(deployments)) |deployment| {
+        try system.append(arena, .{ .label = "Next", .value = try timeValue(arena, tz.?, deployment.timestamp, "reboot to apply") });
+    }
+    if (ostree.rollback(deployments)) |deployment| {
+        const ago = try agoText(arena, deployment.timestamp, now);
+        try system.append(arena, .{ .label = "Prev", .value = try timeValue(arena, tz.?, deployment.timestamp, ago) });
+    }
 
-    if (ostree.deployments(arena, io)) |deployments| {
-        if (ostree.booted(deployments)) |booted| {
-            try items.append(arena, .{ .label = "Built", .value = try builtValue(arena, io, booted.timestamp, now) });
-        }
-    } else |_| {}
-    if (commit(os_release)) |value| try items.append(arena, .{ .label = "Commit", .value = value });
+    const machine = [_]Item{
+        .{ .label = "Uptime", .value = try uptimeValue(arena, io) },
+        .{ .label = "Memory", .value = try memoryValue(arena, io) },
+    };
 
     try out.writeAll(header);
-    try printItems(out, items.items);
+    try printGroups(out, &.{ system.items, &machine });
 }
 
-fn printItems(out: *Io.Writer, items: []const Item) !void {
+fn printGroups(out: *Io.Writer, groups: []const []const Item) !void {
     var width: usize = 0;
-    for (items) |item| width = @max(width, item.label.len);
+    for (groups) |items| {
+        for (items) |item| width = @max(width, item.label.len);
+    }
 
-    for (items) |item| {
-        try out.splatByteAll(' ', width - item.label.len);
-        try out.print("{s}: {s}\n", .{ item.label, item.value });
+    for (groups) |items| {
+        try out.writeAll("\n");
+        for (items) |item| {
+            try out.splatByteAll(' ', width - item.label.len);
+            try out.print("{s}: {s}\n", .{ item.label, item.value });
+        }
     }
 }
 
-test printItems {
-    var buffer: [64]u8 = undefined;
+test printGroups {
+    var buffer: [128]u8 = undefined;
     var out: Io.Writer = .fixed(&buffer);
-    try printItems(&out, &.{
-        .{ .label = "OS", .value = "Tamamo OS 0" },
-        .{ .label = "Kernel", .value = "Linux 7.3.3" },
+    try printGroups(&out, &.{
+        &.{ .{ .label = "OS", .value = "Tamamo OS 0" }, .{ .label = "Kernel", .value = "Linux 7.3.3" } },
+        &.{.{ .label = "Uptime", .value = "5m" }},
     });
-    try std.testing.expectEqualStrings("    OS: Tamamo OS 0\nKernel: Linux 7.3.3\n", out.buffered());
+    try std.testing.expectEqualStrings("\n    OS: Tamamo OS 0\nKernel: Linux 7.3.3\n\nUptime: 5m\n", out.buffered());
 }
 
 fn lineValue(text: []const u8, prefix: []const u8) ?[]const u8 {
@@ -168,8 +185,12 @@ test formatMemory {
     try std.testing.expectEqualStrings("5.2 / 15.4 GiB (34%)", text);
 }
 
-fn builtValue(arena: Allocator, io: Io, timestamp: i64, now: i64) ![]const u8 {
-    const when = try localtime.format(arena, timestamp, try localtime.offset(arena, io, timestamp));
-    const ago = try formatDuration(arena, @intCast(@max(now - timestamp, 0)));
-    return std.fmt.allocPrint(arena, "{s} ({s} ago)", .{ when, ago });
+fn timeValue(arena: Allocator, tz: std.tz.Tz, timestamp: i64, note: []const u8) ![]const u8 {
+    const when = try localtime.format(arena, timestamp, localtime.offsetAt(tz, timestamp));
+    return std.fmt.allocPrint(arena, "{s} ({s})", .{ when, note });
+}
+
+fn agoText(arena: Allocator, timestamp: i64, now: i64) ![]const u8 {
+    const elapsed = try formatDuration(arena, @intCast(@max(now - timestamp, 0)));
+    return std.fmt.allocPrint(arena, "{s} ago", .{elapsed});
 }
