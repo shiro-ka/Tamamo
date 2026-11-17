@@ -22,6 +22,13 @@ pub const Deployment = struct {
         return self.packages.len + self.@"requested-local-packages".len;
     }
 
+    pub fn imageName(self: Deployment) ?[]const u8 {
+        const reference = self.@"container-image-reference";
+        const colon = std.mem.indexOfScalar(u8, reference, ':') orelse return null;
+        const rest = reference[colon + 1 ..];
+        return std.mem.cutPrefix(u8, rest, "docker://") orelse rest;
+    }
+
     pub fn isVerified(self: Deployment) bool {
         return !std.mem.startsWith(u8, self.@"container-image-reference", "ostree-unverified-");
     }
@@ -189,6 +196,8 @@ test "layeredCount and isVerified" {
     try std.testing.expect(!list[0].isVerified());
     try std.testing.expectEqual(0, list[1].layeredCount());
     try std.testing.expect(list[1].isVerified());
+    try std.testing.expectEqualStrings("ghcr.io/shiro-ka/tamamo-nvidia:latest", list[0].imageName().?);
+    try std.testing.expectEqualStrings("ghcr.io/shiro-ka/tamamo:latest", list[1].imageName().?);
 }
 
 test parseDiff {

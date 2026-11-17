@@ -44,6 +44,8 @@ pub fn run(arena: Allocator, io: Io, out: *Io.Writer) !void {
         }
         if (!deployment.isVerified()) {
             try image.append(arena, .{ .label = "Note", .value = "image signature is not verified" });
+            const hint = try signatureHint(arena, hasSigningPolicy(arena, io), deployment.imageName());
+            try image.append(arena, .{ .label = "", .value = hint });
         }
     }
 
@@ -114,4 +116,50 @@ test formatMemory {
     const memory = try formatMemory(allocator, 5415080, 16148572);
     defer allocator.free(memory);
     try std.testing.expectEqualStrings("5.2 / 15.4 GiB (34%)", memory);
+}
+
+fn hasSigningPolicy(arena: Allocator, io: Io) bool {
+    const json = Io.Dir.cwd().readFileAlloc(io, "/etc/containers/policy.json", arena, .limited(1 << 20)) catch return false;
+    return policyCoversTamamo(arena, json) catch false;
+}
+
+fn policyCoversTamamo(arena: Allocator, json: []const u8) !bool {
+    const root = try std.json.parseFromSliceLeaky(std.json.Value, arena, json, .{});
+    const transports = root.object.get("transports") orelse return false;
+    const docker = transports.object.get("docker") orelse return false;
+    return docker.object.contains("ghcr.io/shiro-ka");
+}
+
+test policyCoversTamamo {
+    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    try std.testing.expect(try policyCoversTamamo(arena,
+        \\{"default": [{"type": "insecureAcceptAnything"}], "transports": {"docker": {
+        \\  "ghcr.io/ublue-os": [{"type": "sigstoreSigned"}],
+        \\  "ghcr.io/shiro-ka": [{"type": "sigstoreSigned", "keyPath": "/etc/pki/containers/tamamo.pub"}]
+        \\}}}
+    ));
+    try std.testing.expect(!try policyCoversTamamo(arena,
+        \\{"default": [{"type": "insecureAcceptAnything"}], "transports": {"docker": {
+        \\  "ghcr.io/ublue-os": [{"type": "sigstoreSigned"}]
+        \\}}}
+    ));
+}
+
+fn signatureHint(arena: Allocator, has_policy: bool, image_name: ?[]const u8) ![]const u8 {
+    const name = image_name orelse return "run: rpm-ostree upgrade, then reboot";
+    if (!has_policy) return "run: rpm-ostree upgrade, then reboot";
+    return std.fmt.allocPrint(arena, "run: rpm-ostree rebase ostree-image-signed:docker://{s}", .{name});
+}
+
+test signatureHint {
+    var arena_state: std.heap.ArenaAllocator = .init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    try std.testing.expectEqualStrings("run: rpm-ostree upgrade, then reboot", try signatureHint(arena, false, "ghcr.io/shiro-ka/tamamo-nvidia:latest"));
+    try std.testing.expectEqualStrings(
+        "run: rpm-ostree rebase ostree-image-signed:docker://ghcr.io/shiro-ka/tamamo-nvidia:latest",
+        try signatureHint(arena, true, "ghcr.io/shiro-ka/tamamo-nvidia:latest"),
+    );
 }
