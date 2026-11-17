@@ -1,12 +1,17 @@
 const std = @import("std");
 const Io = std.Io;
 const info = @import("info.zig");
+const next = @import("next.zig");
+
+const Command = enum { info, next };
 
 pub fn main(init: std.process.Init) !void {
-    const args = try init.minimal.args.toSlice(init.arena.allocator());
+    const arena = init.arena.allocator();
+    const args = try init.minimal.args.toSlice(arena);
 
-    if (args.len < 2 or !std.mem.eql(u8, args[1], "info")) {
-        std.debug.print("usage: tamamo info\n", .{});
+    const command = if (args.len >= 2) std.meta.stringToEnum(Command, args[1]) else null;
+    if (command == null) {
+        std.debug.print("usage: tamamo info | tamamo next\n", .{});
         std.process.exit(2);
     }
 
@@ -14,6 +19,19 @@ pub fn main(init: std.process.Init) !void {
     var stdout: Io.File.Writer = .init(.stdout(), init.io, &buffer);
     const out = &stdout.interface;
 
-    try info.run(init.arena.allocator(), init.io, out);
+    switch (command.?) {
+        .info => try info.run(arena, init.io, out),
+        .next => try next.run(arena, init.io, out),
+    }
     try out.flush();
+}
+
+test {
+    _ = @import("info.zig");
+    _ = @import("next.zig");
+    _ = @import("ostree.zig");
+    _ = @import("localtime.zig");
+    _ = @import("format.zig");
+    _ = @import("osrelease.zig");
+    _ = @import("text.zig");
 }
