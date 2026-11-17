@@ -5,11 +5,13 @@ set -ouex pipefail
 cp -avf "/ctx/system_files"/. /
 
 dnf5 remove -y firefox firefox-langpacks
+dnf5 install -y tailscale
 rm -f /usr/share/locale/*/LC_MESSAGES/xdg-user-dirs.mo
 glib-compile-schemas /usr/share/glib-2.0/schemas
 jq '.transports.docker["ghcr.io/shiro-ka"] = [{"type": "sigstoreSigned", "keyPath": "/etc/pki/containers/tamamo.pub", "signedIdentity": {"type": "matchRepository"}}]' /etc/containers/policy.json > /tmp/policy.json
 mv /tmp/policy.json /etc/containers/policy.json
 systemctl enable tamamo-flatpak-preinstall.service
+systemctl enable tailscaled.service
 
 TAMAMO_VERSION=0
 FEDORA_VERSION_ID=$(. /usr/lib/os-release && echo "${VERSION_ID}")
